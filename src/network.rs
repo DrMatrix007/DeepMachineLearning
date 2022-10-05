@@ -8,37 +8,41 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Layer<const N: usize, const M: usize, F: ActivationFunction<T>, T: Number = f64> {
-    pub weights: Matrix<N, M, T>,
-    pub biases:Matrix<1,M,T>,
+pub struct Layer<const N: usize, const M: usize, F: ActivationFunction<f64>> {
+    pub weights: Matrix<N, M>,
+    pub biases:Matrix<1,M>,
     l: PhantomData<F>,
 }
-impl<const N: usize, const M: usize, F: ActivationFunction<T>, T: Number> Layer<N, M, F, T>
+impl<const N: usize, const M: usize, F: ActivationFunction<f64>> Layer<N, M, F>
 where
-    Standard: Distribution<T>,
 {
-    pub fn new(m: Matrix<N, M, T>,b:Matrix<1,M,T>) -> Self {
+    pub fn new(m: Matrix<N, M>,b:Matrix<1,M>) -> Self {
         Self {
             weights: m,
             biases:b,
             l: Default::default(),
         }
     }
-    pub fn random(l: T, h: T) -> Self {
+    pub fn random(l: f64, h: f64) -> Self {
         Self {
             weights: Matrix::random(l, h),
             biases: Matrix::random(l, h),
             l: Default::default(),
         }
     }
+    pub fn auto() -> Self {
+        Self {
+            weights: Matrix::random(-6.0/((M+N) as f64).sqrt(), 6.0/((M+N) as f64).sqrt()),
+            biases: Matrix::random(-6.0/((N+M) as f64).sqrt(), 6.0/((M+N) as f64).sqrt()),
+            l:Default::default()
+        }
+    }
     pub fn zero() -> Self {
         Default::default()
     }
 }
-impl<const N: usize, const M: usize, F: ActivationFunction<T>, T: Number> Default
-    for Layer<N, M, F, T>
-where
-    Standard: Distribution<T>,
+impl<const N: usize, const M: usize, F: ActivationFunction<f64>> Default
+    for Layer<N, M, F>
 {
     fn default() -> Self {
         Self {

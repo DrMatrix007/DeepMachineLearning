@@ -4,21 +4,21 @@ use crate::{
     network::Layer,
 };
 
-pub trait FeedableForward<const M: usize, const FINAL: usize, T: Number> {
-    type Func: ActivationFunction<T>;
+pub trait FeedableForward<const M: usize, const FINAL: usize> {
+    type Func: ActivationFunction;
     fn feed_forward<const DATA_T: usize>(
         &self,
-        data: Matrix<DATA_T, M, T>,
-    ) -> Matrix<DATA_T, FINAL, T>;
+        data: Matrix<DATA_T, M>,
+    ) -> Matrix<DATA_T, FINAL>;
 }
-impl<const M: usize, const FINAL: usize, T: Number, F: ActivationFunction<T>>
-    FeedableForward<M, FINAL, T> for Layer<M, FINAL, F, T>
+impl<const M: usize, const FINAL: usize, F: ActivationFunction>
+    FeedableForward<M, FINAL> for Layer<M, FINAL, F>
 {
     type Func = F;
     fn feed_forward<const DATA_T: usize>(
         &self,
-        data: Matrix<DATA_T, M, T>,
-    ) -> Matrix<DATA_T, FINAL, T> {
+        data: Matrix<DATA_T, M>,
+    ) -> Matrix<DATA_T, FINAL> {
         (data * self.weights)
             .add_vec(self.biases)
             .apply(Self::Func::f)
@@ -29,15 +29,14 @@ impl<
         const N: usize,
         const M: usize,
         const FINAL: usize,
-        T: Number,
-        F: ActivationFunction<T>,
-        A: FeedableForward<M, FINAL, T>,
-    > FeedableForward<N, FINAL, T> for (Layer<N, M, F, T>, A)
+        F: ActivationFunction,
+        A: FeedableForward<M, FINAL>,
+    > FeedableForward<N, FINAL> for (Layer<N, M, F>, A)
 {
     fn feed_forward<const DATA_T: usize>(
         &self,
-        data: Matrix<DATA_T, N, T>,
-    ) -> Matrix<DATA_T, FINAL, T> {
+        data: Matrix<DATA_T, N>,
+    ) -> Matrix<DATA_T, FINAL> {
         self.1.feed_forward(
             (data * self.0.weights)
                 .add_vec(self.0.biases)

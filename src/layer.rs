@@ -1,11 +1,11 @@
 use rand::Rng;
 
 use crate::matrix::{Matrix, ToMatrix};
-struct LearningArgs {
+pub struct LearningArgs {
     learning_rate: f64,
 }
 
-trait Layer<const N: usize, const M: usize>: Default {
+pub trait Layer<const N: usize, const M: usize>: Default + Sized {
     fn forward<const DATA: usize>(&self, l: Matrix<DATA, N>) -> Matrix<DATA, M>;
     fn learn(
         &mut self,
@@ -83,29 +83,61 @@ impl ActivationFunction for Tanh {
     }
 }
 
+pub struct Wrapper<const N: usize, const M: usize, A: Layer<N, M>>(A);
+pub trait Predictable<const INPUT: usize, const FINAL: usize> {
+    const MIDDLE: usize;
+    fn predict<const DATA: usize>(&self, x: Matrix<DATA, INPUT>) -> Matrix<DATA, FINAL>;
+}
+impl<const N: usize, const M: usize, const FINAL: usize, A, B> Predictable<N, FINAL>
+    for (Wrapper<N, M, A>, B)
+where
+    A: Layer<N, M>,
+    B: Predictable<M, FINAL>,
+{
+    fn predict<const DATA: usize>(&self, x: Matrix<DATA, N>) -> Matrix<DATA, FINAL> {
+        let a = self.0.0.forward(x);
+        self.1.predict(a)
+    }
+
+    const MIDDLE: usize = M;
+}
+
 #[macro_export]
 macro_rules! network {
-    ($t:expr,$($other:expr),+) => {
-        ($t,network!($($other),*))
+    ($t:expr,$($other:expr),*) => {
+        network_layers!($t,$($other),*)
     };
-    ($t:expr)=>{($t,)};
+}
+macro_rules! wrap_layer {
+    ($t:expr) => {
+        $crate::layer::Wrapper($t)
+    };
+}
+macro_rules! network_layers {
+    ($t:expr,$($other:expr),+) => {
+        (wrap_layer!($t),network_layers!($($other),+))
+    };
+    ($t:expr)=>{
+        $t
+    };
+    ()=> {()};
 }
 
 #[test]
 fn test() {
-    let nn = network!(Dense::<5, 5>::default(),Tanh, Dense::<5, 5>::default());
-    let mut n = Dense::<2,1>::default();
+    let _nn = network!(Dense::<5, 5>::default(), Tanh, Dense::<5, 5>::default());
+    let mut n = Dense::<2, 1>::default();
     let mut rng = rand::thread_rng();
     let args = &LearningArgs { learning_rate: 0.1 };
     let max = 1000000;
-    let (mut a,mut b) = (rng.gen_range(0..max),rng.gen_range(0..max));
-    for i in 0..1000
-     {
-        let error = (n.forward([[a,b]].to_matrix()) - [[a+b]].to_matrix()) / ((a.max(b) as f64).powi(2));
-        
-        n.learn([[a,b]].to_matrix(), error, args);
-        (a,b) = (rng.gen_range(0..max),rng.gen_range(0..max));
+    let (mut a, mut b) = (rng.gen_range(0..max), rng.gen_range(0..max));
+    for _ in 0..100000 {
+        let error =
+            (n.forward([[a, b]].to_matrix()) - [[a + b]].to_matrix()) / ((a.max(b) as f64).powi(2));
+
+        n.learn([[a, b]].to_matrix(), error, args);
+        (a, b) = (rng.gen_range(0..max), rng.gen_range(0..max));
     }
-    let error = [[a+b]].to_matrix() - n.forward([[a,b]].to_matrix());
-    println!("{:?} {:?}",n,error);
+    let error = [[a + b]].to_matrix() - n.forward([[a, b]].to_matrix());
+    println!("{:?} {:?}", n, error);
 }

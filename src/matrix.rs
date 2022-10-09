@@ -6,41 +6,41 @@ macro_rules! impl_matrix_with_name {
     ($($a:tt)+) => {
         impl<const N: usize, const M: usize> Add<Self> for $($a)+<N, M> {
             type Output = Matrix<N, M>;
-        
+
             fn add(self, rhs: Self) -> Self::Output {
                 self.apply(|x, pos| x + rhs[pos])
             }
         }
-        
+
         impl<const N: usize, const M: usize> Sub<Self> for $($a)+<N, M> {
             type Output = Matrix<N, M>;
-        
+
             fn sub(self, rhs: Self) -> Self::Output {
                 self.apply(|x, pos| x - rhs[pos])
             }
         }
-        
+
         impl<const N: usize, const M: usize, T: Into<f64> + Copy> Mul<T> for $($a)+<N, M> {
             type Output = Matrix<N, M>;
-        
+
             fn mul(self, rhs: T) -> Self::Output {
                 self.apply(|x, _| x * rhs.into())
             }
         }
-        
+
         impl<const N: usize, const M: usize, T: Into<f64> + Copy> Div<T> for $($a)+<N, M> {
             type Output = Matrix<N, M>;
-        
+
             fn div(self, rhs: T) -> Self::Output {
                 self.apply(|x, _| x / rhs.into())
             }
         }
-        
+
         impl<const N: usize, const M: usize, const K: usize> Mul<$($a)+<M, K>> for $($a)+<N, M> {
             type Output = Matrix<N, K>;
             fn mul(self, rhs: $($a)+<M, K>) -> Self::Output {
                 let mut ans = Matrix::default();
-        
+
                 for x in 0..N {
                     for y in 0..K {
                         for z in 0..M {
@@ -51,18 +51,17 @@ macro_rules! impl_matrix_with_name {
                 ans
             }
         }
-        
+
     };
 }
 #[derive(Debug)]
 pub struct Matrix<const N: usize, const M: usize>(Vec<Vec<f64>>);
 impl<const N: usize, const M: usize> Matrix<N, M> {
-
-    pub fn element_wise_product(&self,rhs:&Matrix<N,M>) -> Self {
+    pub fn element_wise_product(&self, rhs: &Matrix<N, M>) -> Self {
         let mut ans = Matrix::default();
         for i in 0..N {
             for j in 0..M {
-                ans[(j,i)] = self[(j,i)]*rhs[(j,i)];
+                ans[(j, i)] = self[(j, i)] * rhs[(j, i)];
             }
         }
         ans
@@ -95,7 +94,7 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
     }
 
     pub fn add_vec(&self, biases: &Matrix<1, M>) -> Matrix<N, M> {
-        self.apply(|v,(y,x)|v+biases[(0,x)])
+        self.apply(|v, (y, x)| v + biases[(0, x)])
     }
     pub fn transpose(&self) -> Matrix<M, N> {
         let mut ans = Matrix::default();
@@ -141,4 +140,3 @@ impl<T: Into<f64> + Copy, const N: usize, const M: usize> ToMatrix<N, M> for [[T
         ans
     }
 }
-

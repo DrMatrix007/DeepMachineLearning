@@ -46,13 +46,13 @@ impl<const N: usize, const M: usize> Layer<N, M> for Dense<N, M> {
         input_error
     }
 }
-trait ActivationFunction: Default {
+trait ActivationFunction<const N: usize>: Default {
     fn func<const P: usize, const K: usize>(d: Matrix<P, K>) -> Matrix<P, K>;
-    fn der<const N: usize, const M: usize>(d: Matrix<N, M>) -> Matrix<N, M>;
+    fn der<const Q: usize, const M: usize>(d: Matrix<Q, M>) -> Matrix<Q, M>;
     fn empty() -> Self;
 }
 
-impl<const N: usize, T: ActivationFunction> Layer<N, N> for T {
+impl<const N: usize, T: ActivationFunction<N>> Layer<N, N> for T {
     fn forward<const DATA: usize>(&self, l: Matrix<DATA, N>) -> Matrix<DATA, N> {
         Self::func(l)
     }
@@ -68,14 +68,14 @@ impl<const N: usize, T: ActivationFunction> Layer<N, N> for T {
 }
 
 #[derive(Default)]
-struct Tanh;
-impl ActivationFunction for Tanh {
+struct Tanh<const N: usize>;
+impl<const N: usize> ActivationFunction<N> for Tanh<N> {
     fn func<const P: usize, const K: usize>(d: Matrix<P, K>) -> Matrix<P, K> {
-        d.apply(|x, _| x.tanh())
+        d.apply(|x| x.tanh())
     }
 
-    fn der<const N: usize, const M: usize>(d: Matrix<N, M>) -> Matrix<N, M> {
-        d.apply(|x, _| 1.0 - x.tanh().powi(2))
+    fn der<const Q: usize, const M: usize>(d: Matrix<Q, M>) -> Matrix<Q, M> {
+        d.apply(|x| 1.0 - x.tanh().powi(2))
     }
 
     fn empty() -> Self {
@@ -85,7 +85,6 @@ impl ActivationFunction for Tanh {
 
 pub struct Wrapper<const N: usize, const M: usize, A: Layer<N, M>>(A);
 pub trait Predictable<const INPUT: usize, const FINAL: usize> {
-    const MIDDLE: usize;
     fn predict<const DATA: usize>(&self, x: Matrix<DATA, INPUT>) -> Matrix<DATA, FINAL>;
 }
 impl<const N: usize, const M: usize, const FINAL: usize, A, B> Predictable<N, FINAL>
@@ -95,12 +94,56 @@ where
     B: Predictable<M, FINAL>,
 {
     fn predict<const DATA: usize>(&self, x: Matrix<DATA, N>) -> Matrix<DATA, FINAL> {
-        let a = self.0.0.forward(x);
+        let a = self.0 .0.forward(x);
         self.1.predict(a)
     }
-
-    const MIDDLE: usize = M;
 }
+impl<const M: usize, const FINAL: usize, B> Predictable<M, FINAL> for (Wrapper<M, FINAL, B>,)
+where
+    B: Layer<M, FINAL>,
+{
+    fn predict<const DATA: usize>(&self, x: Matrix<DATA, M>) -> Matrix<DATA, FINAL> {
+        self.0 .0.forward(x)
+    }
+}
+
+trait Learnable<const N:usize,const M:usize,const FINAL:usize> {
+    fn fit(
+        &mut self,
+        input: Matrix<1, N>,
+        output_error: Matrix<1, M>,
+        args: &LearningArgs,
+    ) -> Matrix<1, N>;
+}
+impl<const N: usize, const M: usize, const FINAL: usize, A, B> Learnable<N,M, FINAL>
+    for (Wrapper<N, M, A>, B)
+where
+    A: Layer<N, M>,
+    B: Learnable<N,M, FINAL>,
+{
+    fn fit(
+        &mut self,
+        input: Matrix<1, N>,
+        output_error: Matrix<1, M>,
+        args: &LearningArgs,
+    ) -> Matrix<1, N> {
+        self.1.0.0. self.0.0.learn(input,output_error,args)
+    }
+}
+impl<const M: usize, const FINAL: usize, B> Learnable<M, FINAL> for (Wrapper<M, FINAL, B>,)
+where
+    B: Layer<M, FINAL>,
+{
+    fn fit(
+        &mut self,
+        input: Matrix<1, M>,
+        output_error: Matrix<1, M>,
+        _: &LearningArgs,
+    ) -> Matrix<1, M> {
+        todo!()
+    }
+}
+
 
 #[macro_export]
 macro_rules! network {
@@ -118,26 +161,28 @@ macro_rules! network_layers {
         (wrap_layer!($t),network_layers!($($other),+))
     };
     ($t:expr)=>{
-        $t
+        (wrap_layer!($t),)
     };
     ()=> {()};
 }
 
 #[test]
 fn test() {
-    let _nn = network!(Dense::<5, 5>::default(), Tanh, Dense::<5, 5>::default());
-    let mut n = Dense::<2, 1>::default();
+    let n = network!(Dense::<2, 1>::default(), Dense::<1, 1>::default());
     let mut rng = rand::thread_rng();
     let args = &LearningArgs { learning_rate: 0.1 };
     let max = 1000000;
     let (mut a, mut b) = (rng.gen_range(0..max), rng.gen_range(0..max));
     for _ in 0..100000 {
-        let error =
-            (n.forward([[a, b]].to_matrix()) - [[a + b]].to_matrix()) / ((a.max(b) as f64).powi(2));
+        let error = (n.predict([[a, b]].to_matrix()) - [[a + b]].to_matrix())
+            / ((a.max(b).max(1) as f64).powi(2));
 
         n.learn([[a, b]].to_matrix(), error, args);
         (a, b) = (rng.gen_range(0..max), rng.gen_range(0..max));
     }
-    let error = [[a + b]].to_matrix() - n.forward([[a, b]].to_matrix());
+    let error = [[a + b]].to_matrix() - n.predict([[a, b]].to_matrix());
+    if !error.max().unwrap_or(0.0).is_finite() {
+        panic!();
+    }
     println!("{:?} {:?}", n, error);
 }

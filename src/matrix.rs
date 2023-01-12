@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ops::{Add, Index, IndexMut},
+    ops::{Index, IndexMut},
     vec::IntoIter,
 };
 
@@ -31,6 +31,7 @@ impl<const N: usize, const M: usize> Display for Matrix<N, M> {
 
 impl<const N: usize, const M: usize> Default for Matrix<N, M> {
     fn default() -> Self {
+
         Self(std::iter::repeat(0.0).take(N * M).collect())
     }
 }
@@ -40,7 +41,7 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         self.0
             .iter()
             .enumerate()
-            .map(|(pos, x)| ((pos % M, pos / M), x))
+            .map(|(pos, x)| ((pos % N, pos / N), x))
             .collect::<Vec<_>>()
             .into_iter()
     }
@@ -54,7 +55,20 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         self.0
             .iter_mut()
             .enumerate()
-            .map(|(pos, x)| ((pos % M, pos / M), x))
+            .map(|(pos, x)| ((pos %N, pos/N), x))
+    }
+
+    pub fn trasnpose(&self) -> Matrix<M, N> {
+        let mut ans = Matrix::default();
+        for (pos, i) in ans.iter_mut() {
+            *i = self[(pos.1, pos.0)];
+        }
+        ans
+    }
+
+    pub fn ones() -> Matrix<N, M> {
+        let v = std::iter::repeat(1.0).take(N * M).collect::<Vec::<_>>();
+        Matrix(v)
     }
 }
 
@@ -62,40 +76,42 @@ impl<const N: usize, const M: usize> Index<(usize, usize)> for Matrix<N, M> {
     type Output = f64;
 
     fn index(&self, index: (usize, usize)) -> &Self::Output {
-        return self.0.get(index.0 + index.1 * N).unwrap();
+        &self.0[index.0 + index.1 * N]
     }
 }
 
 impl<const N: usize, const M: usize> IndexMut<(usize, usize)> for Matrix<N, M> {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
-        return self.0.get_mut(index.0 + index.1 * N).unwrap();
+        &mut self.0[index.0 + index.1 * N]
     }
 }
-pub trait ToMatrix<const N: usize, const M: usize> {
-    fn to_matrix(self) -> Matrix<N, M>;
+impl<T, const N: usize, const M: usize> From<[[T; N]; M]> for Matrix<N, M> where T: Into<f64> + Clone {
+    fn from(val: [[T; N]; M]) -> Self {
+        Matrix(val.concat().into_iter().map(|x| x.into()).collect())
+    }
 }
 
-impl<T: Into<f64> + Clone, const N: usize, const M: usize> ToMatrix<N, M> for [[T; N]; M] {
-    fn to_matrix(self) -> Matrix<N, M> {
-        Matrix(self.concat().into_iter().map(|x| x.into()).collect())
-    }
-}
-impl<const N: usize, const M: usize> Add<Self> for &Matrix<N, M> {
-    type Output = Matrix<N, M>;
+// impl<T: Into<f64> + Clone, const N: usize> ToMatrix<N, 1> for [T; N] {
+//     fn to_matrix(self) -> Matrix<N, 1> {
+//         Matrix(self.concat().into_iter().map(|x| x.into()).collect())
+//     }
+// }
 
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut ans = Matrix::default();
-        for (a, b) in ans.iter_mut() {
-            *b = self[a] + rhs[a];
-        }
-        ans
-    }
-}
 mod add {
     use std::ops::Add;
 
     use super::Matrix;
+    impl<const N: usize, const M: usize> Add<Self> for &Matrix<N, M> {
+        type Output = Matrix<N, M>;
 
+        fn add(self, rhs: Self) -> Self::Output {
+            let mut ans = Matrix::default();
+            for (a, b) in ans.iter_mut() {
+                *b = self[a] + rhs[a];
+            }
+            ans
+        }
+    }
     impl<const N: usize, const M: usize> Add<Matrix<N, M>> for Matrix<N, M> {
         type Output = Matrix<N, M>;
 
@@ -156,7 +172,6 @@ mod sub {
         }
     }
 }
-
 mod mul {
     use std::ops::Mul;
 
@@ -216,15 +231,15 @@ mod mul {
         fn mul(self, rhs: f64) -> Self::Output {
             &self * rhs
         }
-    }    
-    impl<const N: usize, const M: usize> Mul<Matrix<N, M>> for f64{
+    }
+    impl<const N: usize, const M: usize> Mul<Matrix<N, M>> for f64 {
         type Output = Matrix<N, M>;
 
         fn mul(self, rhs: Matrix<N, M>) -> Self::Output {
             rhs * self
         }
     }
-    impl<const N: usize, const M: usize> Mul<&Matrix<N, M>> for f64{
+    impl<const N: usize, const M: usize> Mul<&Matrix<N, M>> for f64 {
         type Output = Matrix<N, M>;
 
         fn mul(self, rhs: &Matrix<N, M>) -> Self::Output {

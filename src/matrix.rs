@@ -4,7 +4,7 @@ use std::{
     vec::IntoIter,
 };
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Matrix<const N: usize, const M: usize>(pub(self) Vec<f64>);
 
 impl<const N: usize, const M: usize> Display for Matrix<N, M> {
@@ -14,8 +14,8 @@ impl<const N: usize, const M: usize> Display for Matrix<N, M> {
         for (pos, x) in self.iter() {
             if pos.0 == 0 {
                 write!(f, "[{},", x)?
-            } else if pos.0 == N - 1 {
-                if pos.1 == M - 1 {
+            } else if pos.0 == M - 1 {
+                if pos.1 == N - 1 {
                     write!(f, "{}]", x)?;
                 } else {
                     writeln!(f, "{}]", x)?;
@@ -69,6 +69,15 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
     pub fn ones() -> Matrix<N, M> {
         let v = std::iter::repeat(1.0).take(N * M).collect::<Vec::<_>>();
         Matrix(v)
+    }
+
+    pub(crate) fn element_wise_product(&self, x: &Matrix<N, M>) -> Matrix<N, M> {
+        let mut ans = Matrix::default();
+
+        for(pos,i) in ans.iter_mut() {
+            *i = x[pos] * self[pos];
+        }
+        ans
     }
 }
 

@@ -4,7 +4,7 @@ use std::{
     vec::IntoIter,
 };
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Matrix<const N: usize, const M: usize>(pub(self) Vec<f64>);
 
 impl<const N: usize, const M: usize> Display for Matrix<N, M> {
@@ -31,8 +31,7 @@ impl<const N: usize, const M: usize> Display for Matrix<N, M> {
 
 impl<const N: usize, const M: usize> Default for Matrix<N, M> {
     fn default() -> Self {
-
-        Self(std::iter::repeat(0.0).take(N * M).collect())
+        Self::zeros()
     }
 }
 
@@ -55,7 +54,7 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         self.0
             .iter_mut()
             .enumerate()
-            .map(|(pos, x)| ((pos %N, pos/N), x))
+            .map(|(pos, x)| ((pos % N, pos / N), x))
     }
 
     pub fn trasnpose(&self) -> Matrix<M, N> {
@@ -65,19 +64,35 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         }
         ans
     }
-
+    pub fn generate(f: impl FnMut() -> f64) -> Self {
+        Self(std::iter::repeat_with(f).take(N * M).collect())
+    }
     pub fn ones() -> Matrix<N, M> {
-        let v = std::iter::repeat(1.0).take(N * M).collect::<Vec::<_>>();
-        Matrix(v)
+        Self::generate(|| 1.0)
     }
 
-    pub(crate) fn element_wise_product(&self, x: &Matrix<N, M>) -> Matrix<N, M> {
+    pub fn element_wise_product(&self, x: &Matrix<N, M>) -> Matrix<N, M> {
         let mut ans = Matrix::default();
 
-        for(pos,i) in ans.iter_mut() {
+        for (pos, i) in ans.iter_mut() {
             *i = x[pos] * self[pos];
         }
         ans
+    }
+
+    pub fn zeros() -> Matrix<N, M> {
+        Self::generate(|| 0.0)
+    }
+
+    pub fn map(&self, mut f: impl FnMut((usize, usize), f64) -> f64) -> Matrix<N, M> {
+        let mut ans = Matrix::zeros();
+        for (pos, val) in ans.iter_mut() {
+            *val = f(pos, *val);
+        }
+        ans
+    }
+    pub fn max(&self) -> f64 {
+        self.iter().map(|(_, y)| *y).fold(f64::NAN, f64::max)
     }
 }
 
@@ -94,7 +109,10 @@ impl<const N: usize, const M: usize> IndexMut<(usize, usize)> for Matrix<N, M> {
         &mut self.0[index.0 + index.1 * N]
     }
 }
-impl<T, const N: usize, const M: usize> From<[[T; N]; M]> for Matrix<N, M> where T: Into<f64> + Clone {
+impl<T, const N: usize, const M: usize> From<[[T; N]; M]> for Matrix<N, M>
+where
+    T: Into<f64> + Clone,
+{
     fn from(val: [[T; N]; M]) -> Self {
         Matrix(val.concat().into_iter().map(|x| x.into()).collect())
     }
@@ -253,6 +271,30 @@ mod mul {
 
         fn mul(self, rhs: &Matrix<N, M>) -> Self::Output {
             rhs * self
+        }
+    }
+}
+mod div {
+    use std::ops::Div;
+
+    use super::Matrix;
+
+    impl<const N: usize, const M: usize> Div<f64> for &Matrix<N, M> {
+        type Output = Matrix<N, M>;
+
+        fn div(self, rhs: f64) -> Self::Output {
+            let mut ans = Matrix::default();
+            for (pos, i) in ans.iter_mut() {
+                *i = self[pos] / rhs;
+            }
+            ans
+        }
+    }
+    impl<const N: usize, const M: usize> Div<f64> for Matrix<N, M> {
+        type Output = Matrix<N, M>;
+
+        fn div(self, rhs: f64) -> Self::Output {
+            &self / rhs
         }
     }
 }

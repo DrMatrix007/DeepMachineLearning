@@ -63,18 +63,17 @@ impl<const N: usize, const M: usize> Layer<N, M> for DenseLayer<N, M> {
         output_error: Matrix<1, M>,
         args: &LearningArgs,
     ) -> Matrix<1, N> {
-        let i_e = &output_error * self.weights.trasnpose();
-        let weights_error = input.trasnpose() * output_error;
-        self.weights = &self.weights - weights_error * args.learning_rate;
-
-        i_e
+        let input_error = &output_error * self.weights.trasnpose();
+        let weights_error = input.trasnpose() * &output_error;
+        self.weights = &self.weights - &weights_error * args.learning_rate;
+        input_error
     }
 }
 
 impl<const N: usize, const M: usize> Default for DenseLayer<N, M> {
     fn default() -> Self {
         Self {
-            weights: Default::default(),
+            weights: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / (N * M) as f64),
         }
     }
 }
@@ -91,6 +90,39 @@ impl Activation for LinearActivation {
         Matrix::ones()
     }
 }
+#[derive(Debug)]
+pub struct SigmoidActivation;
+
+impl SigmoidActivation {
+    fn sigmoid(x: f64) -> f64 {
+        1.0 / (1.0 + (-x).exp())
+    }
+    fn der(x: f64) -> f64 {
+        let x = Self::sigmoid(x);
+        x * (1.0 - x)
+    }
+}
+impl Activation for SigmoidActivation {
+    fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_, v| Self::sigmoid(v))
+    }
+
+    fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_, v| Self::der(v))
+    }
+}
+#[derive(Debug)]
+pub struct ReLU;
+
+impl Activation for ReLU {
+    fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_, v| if v > 0.0 { v } else { 0.0 })
+    }
+
+    fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_, v| if v > 0.0 { 1.0 } else { 0.0 })
+    }
+}
 
 pub trait Network<const N: usize, const M: usize> {
     fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M>;
@@ -102,6 +134,11 @@ pub trait Network<const N: usize, const M: usize> {
         output_error: Matrix<1, M>,
         args: &LearningArgs,
     ) -> Matrix<1, N>;
+
+    fn calulate_error<const K: usize>(&self, x: Matrix<K, N>, y: Matrix<K, M>) -> Matrix<K, M> {
+        let loss = self.forward(x) - y;
+        2.0  * loss
+    }
 }
 
 impl<const N: usize, const M: usize, A: Layer<N, M>> Network<N, M> for (A,) {
@@ -142,7 +179,7 @@ impl<const N: usize, const M: usize, const K: usize, A: Layer<N, K>, B: Network<
     ) -> Matrix<1, N> {
         self.0 .0.learn(
             input.clone(),
-            self.1.fit(self.0.0.forward(input), output_error, args),
+            self.1.fit(self.0 .0.forward(input), output_error, args),
             args,
         )
     }
@@ -150,10 +187,10 @@ impl<const N: usize, const M: usize, const K: usize, A: Layer<N, K>, B: Network<
 
 #[macro_export]
 macro_rules! network {
-    ($e:expr) => {
+    ($e:expr $(,)?) => {
         ($e,)
     };
-    ($e:expr,$($es:expr),*) => {
+    ($e:expr,$($es:expr),* $(,)?) => {
         ($crate::layer::Wrapper($e),network!($($es),*))
     };
 

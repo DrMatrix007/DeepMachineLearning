@@ -1,11 +1,12 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use std::io::LineWriter;
+use std::default::{self};
 
 use layer::{Activation, Network};
 use matrix::Matrix;
+use rand::random;
 
-use crate::layer::{DenseLayer, LearningArgs, LinearActivation};
+use crate::layer::{DenseLayer, LearningArgs, LinearActivation, ReLU, SigmoidActivation};
 pub mod layer;
 pub mod matrix;
 
@@ -18,23 +19,25 @@ impl Activation for SquareActivation {
     }
 
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        l*2.0
+        l * 2.0
     }
 }
 
-
 fn main() {
-    let args = LearningArgs {
-        learning_rate: 0.01,
-    };
-    let mut net = network!(DenseLayer::<1, 1>::default(),DenseLayer::<1,1>::default());
+    let args = LearningArgs { learning_rate: 0.1 };
+    let mut net = network!(
+        DenseLayer::<2, 1>::default(),
+        SigmoidActivation
+        // DenseLayer::<20, 1>::default(),
+    );
 
-    for _ in 0..1 {
-        for i in 0..10 {
-            let err =  net.forward([[i]].into()) - Matrix::from([[i*2]]);
-            println!("{} {}",&err, net.fit([[i]].into(), err.clone(), &args));
-        }   
+    for _ in 0..1000 {
+        let (j, i) = (random::<f64>()/2.0, random::<f64>()/2.0);
+        let x = Matrix::from([[i], [j]]);
+        let err = net.calulate_error(x.clone(), Matrix::from([[i+j]]));
+        net.fit(x, err.clone(), &args);
     }
-    println!("{:?}",net);
-    println!("{}", net.forward([[1]].into()));
+    println!("{:?}", net);
+
+    println!("{}", net.forward([[], [1.0]].into()));
 }

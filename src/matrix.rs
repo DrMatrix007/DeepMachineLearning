@@ -85,7 +85,7 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
     }
 
     pub fn map(&self, mut f: impl FnMut((usize, usize), f64) -> f64) -> Matrix<N, M> {
-        let mut ans = Matrix::zeros();
+        let mut ans = self.clone();
         for (pos, val) in ans.iter_mut() {
             *val = f(pos, *val);
         }

@@ -124,6 +124,20 @@ impl Activation for ReLU {
     }
 }
 
+#[derive(Debug)]
+pub struct Tanh;
+
+impl Activation for Tanh {
+    fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+         l.map(|_,v|v.tanh())
+    }
+
+    fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_,v|1.0-v.tanh().powi(2))
+    }
+}
+
+
 pub trait Network<const N: usize, const M: usize> {
     fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M>;
     fn backward<const K: usize>(&self, l: Matrix<K, M>) -> Matrix<K, N>;

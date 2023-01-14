@@ -6,7 +6,7 @@ use layer::{Activation, Network};
 use matrix::Matrix;
 use rand::random;
 
-use crate::layer::{DenseLayer, LearningArgs, LinearActivation, ReLU, SigmoidActivation};
+use crate::layer::{DenseLayer, LearningArgs, LinearActivation, ReLU, SigmoidActivation, Tanh};
 pub mod layer;
 pub mod matrix;
 
@@ -26,17 +26,26 @@ impl Activation for SquareActivation {
 fn main() {
     let args = LearningArgs { learning_rate: 0.1 };
     let mut net = network!(
-        DenseLayer::<2, 1000>::default(),
-        DenseLayer::<1000,1>::default(),
+        DenseLayer::<2, 3>::default(),
+        Tanh,
+        DenseLayer::<3, 1>::default(),
+        Tanh,
     );
-
-    for _ in 0..1000 {
-        let (j, i) = (random::<f64>()/2.0, random::<f64>()/2.0);
-        let x = Matrix::from([[i], [j]]);
-        let err = net.calulate_error(x.clone(), Matrix::from([[i+j]]));
-        net.fit(x, err.clone(), &args);
+    for _ in 0..10000 {
+        for i in 0..2 {
+            for j in 0..2 {
+                // let (j, i) = (random::<f64>() / 2.0, random::<f64>() / 2.0);
+                let x = Matrix::from([[i], [j]]);
+                let err =
+                    net.calulate_error(x.clone(), Matrix::from([[if i == j { 1.0 } else { 0.5 }]]));
+                net.fit(x, err.clone(), &args);
+            }
+        }
     }
     println!("{:?}", net);
 
-    println!("{}", net.forward([[0.6], [0.2]].into()));
+    println!("{}", net.forward([[1], [0]].into()));
+    println!("{}", net.forward([[0], [1]].into()));
+    println!("{}", net.forward([[1], [1]].into()));
+    println!("{}", net.forward([[0], [0]].into()));
 }

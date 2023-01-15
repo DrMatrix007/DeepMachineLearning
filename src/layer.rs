@@ -46,11 +46,18 @@ impl<const N: usize, T: Activation> Layer<N, N> for T {
 #[derive(Debug)]
 pub struct DenseLayer<const N: usize, const M: usize> {
     weights: Matrix<N, M>,
+    biases: Matrix<1, M>,
+}
+
+impl<const N: usize, const M: usize> DenseLayer<N, M> {
+    fn add_bias<const K:usize,const P:usize>(m:&Matrix<K,P>,b:&Matrix<1,P>) -> Matrix<K,P> {
+        m.map(|(x,_),val|val + b[(x,0)])
+    }
 }
 
 impl<const N: usize, const M: usize> Layer<N, M> for DenseLayer<N, M> {
     fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M> {
-        l * &self.weights
+        Self::add_bias(&(l * &self.weights),&self.biases)
     }
 
     fn backward<const K: usize>(&self, l: Matrix<K, M>) -> Matrix<K, N> {
@@ -66,6 +73,7 @@ impl<const N: usize, const M: usize> Layer<N, M> for DenseLayer<N, M> {
         let input_error = &output_error * self.weights.trasnpose();
         let weights_error = input.trasnpose() * &output_error;
         self.weights = &self.weights - &weights_error * args.learning_rate;
+        self.biases = &self.biases - output_error * args.learning_rate; 
         input_error
     }
 }
@@ -74,6 +82,7 @@ impl<const N: usize, const M: usize> Default for DenseLayer<N, M> {
     fn default() -> Self {
         Self {
             weights: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / (N * M) as f64),
+            biases: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / M as f64),
         }
     }
 }
@@ -129,14 +138,13 @@ pub struct Tanh;
 
 impl Activation for Tanh {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-         l.map(|_,v|v.tanh())
+        l.map(|_, v| v.tanh())
     }
 
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        l.map(|_,v|1.0-v.tanh().powi(2))
+        l.map(|_, v| 1.0 - v.tanh().powi(2))
     }
 }
-
 
 pub trait Network<const N: usize, const M: usize> {
     fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M>;
@@ -151,7 +159,7 @@ pub trait Network<const N: usize, const M: usize> {
 
     fn calulate_error<const K: usize>(&self, x: Matrix<K, N>, y: Matrix<K, M>) -> Matrix<K, M> {
         let loss = self.forward(x) - y;
-        2.0  * loss
+        2.0 * loss
     }
 }
 

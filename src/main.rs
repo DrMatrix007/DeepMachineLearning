@@ -44,8 +44,8 @@ fn main() {
     }
     println!("{:?}", net);
 
-    println!("{}", net.forward([[1], [0]].into()));
     println!("{}", net.forward([[0], [1]].into()));
+    println!("{}", net.forward([[1], [0]].into()));
     println!("{}", net.forward([[1], [1]].into()));
     println!("{}", net.forward([[0], [0]].into()));
 }

@@ -7,6 +7,12 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct Matrix<const N: usize, const M: usize>(pub(self) Vec<f64>);
 
+impl<const N: usize, const M: usize> FromIterator<Matrix<N, 1>> for Matrix<N, M> {
+    fn from_iter<T: IntoIterator<Item = Matrix<N, 1>>>(iter: T) -> Self {
+        Matrix(iter.into_iter().flat_map(|x| x.0).collect())
+    }
+}
+
 impl<const N: usize, const M: usize> Display for Matrix<N, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[")?;
@@ -93,6 +99,32 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
     }
     pub fn max(&self) -> f64 {
         self.iter().map(|(_, y)| *y).fold(f64::NAN, f64::max)
+    }
+    pub fn sub_matrices_vertically(&self) -> impl Iterator<Item = Matrix<N, 1>> + '_ {
+        (0..M).map(|offset| {
+            let mut v = self
+                .0
+                .iter()
+                .skip(offset * N)
+                .take(N)
+                .cloned()
+                .collect::<Vec<_>>();
+            v.resize(N, 0.0);
+            Matrix::<N, 1>(v)
+        })
+    }
+
+    pub fn sub(&self, i: usize) -> Matrix<N, 1> {
+        if i < M {
+            Matrix(self.0.iter().skip(i * N).take(N).copied().collect())
+        } else {
+            panic!("access bounds out of range");            
+        }
+    }
+    pub fn set_sub(&mut self,i:usize,m:&Matrix<N,1>) {
+        for x in 0..N {
+            self[(x,i)] = m[(x,0)];
+        }
     }
 }
 
@@ -204,39 +236,39 @@ mod mul {
 
     use super::Matrix;
 
-    impl<const N: usize, const M: usize, const K: usize> Mul<&Matrix<M, K>> for &Matrix<N, M> {
-        type Output = Matrix<N, K>;
+    impl<const N: usize, const M: usize, const K: usize> Mul<&Matrix<K, N>> for &Matrix<N, M> {
+        type Output = Matrix<K, M>;
 
-        fn mul(self, rhs: &Matrix<M, K>) -> Self::Output {
+        fn mul(self, rhs: &Matrix<K, N>) -> Self::Output {
             let mut ans = Matrix::default();
 
             for (pos, x) in ans.iter_mut() {
                 *x = 0.0;
-                for m in 0..M {
-                    *x += self[(pos.0, m)] * rhs[(m, pos.1)];
+                for n in 0..N {
+                    *x += self[(n, pos.1)] * rhs[(pos.0, n)];
                 }
             }
             ans
         }
     }
-    impl<const N: usize, const M: usize, const K: usize> Mul<Matrix<M, K>> for &Matrix<N, M> {
-        type Output = Matrix<N, K>;
+    impl<const N: usize, const M: usize, const K: usize> Mul<Matrix<K, N>> for &Matrix<N, M> {
+        type Output = Matrix<K, M>;
 
-        fn mul(self, rhs: Matrix<M, K>) -> Self::Output {
+        fn mul(self, rhs: Matrix<K, N>) -> Self::Output {
             self * &rhs
         }
     }
-    impl<const N: usize, const M: usize, const K: usize> Mul<&Matrix<M, K>> for Matrix<N, M> {
-        type Output = Matrix<N, K>;
+    impl<const N: usize, const M: usize, const K: usize> Mul<&Matrix<K, N>> for Matrix<N, M> {
+        type Output = Matrix<K, M>;
 
-        fn mul(self, rhs: &Matrix<M, K>) -> Self::Output {
+        fn mul(self, rhs: &Matrix<K, N>) -> Self::Output {
             &self * rhs
         }
     }
-    impl<const N: usize, const M: usize, const K: usize> Mul<Matrix<M, K>> for Matrix<N, M> {
-        type Output = Matrix<N, K>;
+    impl<const N: usize, const M: usize, const K: usize> Mul<Matrix<K, N>> for Matrix<N, M> {
+        type Output = Matrix<K, M>;
 
-        fn mul(self, rhs: Matrix<M, K>) -> Self::Output {
+        fn mul(self, rhs: Matrix<K, N>) -> Self::Output {
             &self * &rhs
         }
     }

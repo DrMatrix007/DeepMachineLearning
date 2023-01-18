@@ -4,76 +4,71 @@ use crate::matrix::Matrix;
 
 pub struct LearningArgs {
     pub learning_rate: f64,
+    pub epochs: i32,
+    pub single_epochs: i32,
 }
 
 #[derive(Debug)]
 pub struct Wrapper<const N: usize, const M: usize, T: Layer<N, M>>(pub T);
 
 pub trait Layer<const N: usize, const M: usize> {
-    fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M>;
-    fn backward<const K: usize>(&self, l: Matrix<K, M>) -> Matrix<K, N>;
+    fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K>;
 
     fn learn(
         &mut self,
-        input: Matrix<1, N>,
-        output_error: Matrix<1, M>,
+        input: Matrix<N, 1>,
+        output_error: Matrix<M, 1>,
         args: &LearningArgs,
-    ) -> Matrix<1, N>;
+    ) -> Matrix<N, 1>;
 }
 pub trait Activation: Debug {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N>;
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N>;
 }
 impl<const N: usize, T: Activation> Layer<N, N> for T {
-    fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        self.forward(l)
-    }
-
-    fn backward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        self.backward(l)
-    }
-
     fn learn(
         &mut self,
-        input: Matrix<1, N>,
-        output_error: Matrix<1, N>,
+        input: Matrix<N, 1>,
+        output_error: Matrix<N, 1>,
         _: &LearningArgs,
-    ) -> Matrix<1, N> {
+    ) -> Matrix<N, 1> {
         self.backward(input).element_wise_product(&output_error)
+    }
+
+    fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<N, K> {
+        self.forward(l)
     }
 }
 
 #[derive(Debug)]
 pub struct DenseLayer<const N: usize, const M: usize> {
-    weights: Matrix<N, M>,
-    biases: Matrix<1, M>,
+    weights: Matrix<M, N>,
+    biases: Matrix<M, 1>,
 }
 
 impl<const N: usize, const M: usize> DenseLayer<N, M> {
-    fn add_bias<const K:usize,const P:usize>(m:&Matrix<K,P>,b:&Matrix<1,P>) -> Matrix<K,P> {
-        m.map(|(x,_),val|val + b[(x,0)])
+    fn add_bias<const K: usize, const P: usize>(
+        m: &Matrix<P, K>,
+        b: &Matrix<P, 1>,
+    ) -> Matrix<P, K> {
+        m.map(|(x, _), val| val + b[(x, 0)])
     }
 }
 
 impl<const N: usize, const M: usize> Layer<N, M> for DenseLayer<N, M> {
-    fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M> {
-        Self::add_bias(&(l * &self.weights),&self.biases)
+    fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K> {
+        Self::add_bias(&(l * &self.weights), &self.biases)
     }
-
-    fn backward<const K: usize>(&self, l: Matrix<K, M>) -> Matrix<K, N> {
-        l * self.weights.trasnpose()
-    }
-
     fn learn(
         &mut self,
-        input: Matrix<1, N>,
-        output_error: Matrix<1, M>,
+        input: Matrix<N, 1>,
+        output_error: Matrix<M, 1>,
         args: &LearningArgs,
-    ) -> Matrix<1, N> {
+    ) -> Matrix<N, 1> {
         let input_error = &output_error * self.weights.trasnpose();
         let weights_error = input.trasnpose() * &output_error;
         self.weights = &self.weights - &weights_error * args.learning_rate;
-        self.biases = &self.biases - output_error * args.learning_rate; 
+        self.biases = &self.biases - (output_error * args.learning_rate);
         input_error
     }
 }
@@ -121,9 +116,9 @@ impl Activation for SigmoidActivation {
     }
 }
 #[derive(Debug)]
-pub struct ReLU;
+pub struct ReLUActivation;
 
-impl Activation for ReLU {
+impl Activation for ReLUActivation {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
         l.map(|_, v| if v > 0.0 { v } else { 0.0 })
     }
@@ -134,9 +129,9 @@ impl Activation for ReLU {
 }
 
 #[derive(Debug)]
-pub struct Tanh;
+pub struct TanhActivation;
 
-impl Activation for Tanh {
+impl Activation for TanhActivation {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
         l.map(|_, v| v.tanh())
     }
@@ -146,59 +141,50 @@ impl Activation for Tanh {
     }
 }
 
-pub trait Network<const N: usize, const M: usize> {
-    fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M>;
-    fn backward<const K: usize>(&self, l: Matrix<K, M>) -> Matrix<K, N>;
+pub trait NetworkLayer<const N: usize, const M: usize> {
+    fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K>;
 
     fn fit(
         &mut self,
-        input: Matrix<1, N>,
-        output_error: Matrix<1, M>,
+        input: Matrix<N, 1>,
+        output_error: Matrix<M, 1>,
         args: &LearningArgs,
-    ) -> Matrix<1, N>;
+    ) -> Matrix<N, 1>;
 
-    fn calulate_error<const K: usize>(&self, x: Matrix<K, N>, y: Matrix<K, M>) -> Matrix<K, M> {
+    fn calulate_error<const K: usize>(&self, x: Matrix<N, K>, y: Matrix<M, K>) -> Matrix<M, K> {
         let loss = self.forward(x) - y;
         2.0 * loss
     }
 }
 
-impl<const N: usize, const M: usize, A: Layer<N, M>> Network<N, M> for (A,) {
-    fn forward<const K: usize>(&self, l: Matrix<K, N>) -> Matrix<K, M> {
-        Layer::forward(&self.0, l)
-    }
-
-    fn backward<const K: usize>(&self, l: Matrix<K, M>) -> Matrix<K, N> {
-        Layer::backward(&self.0, l)
+impl<const N: usize, const M: usize, A: Layer<N, M>> NetworkLayer<N, M> for (A,) {
+    fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K> {
+        self.0.forward(l)
     }
 
     fn fit(
         &mut self,
-        input: Matrix<1, N>,
-        output_error: Matrix<1, M>,
+        input: Matrix<N, 1>,
+        output_error: Matrix<M, 1>,
         args: &LearningArgs,
-    ) -> Matrix<1, N> {
+    ) -> Matrix<N, 1> {
         self.0.learn(input, output_error, args)
     }
 }
 
-impl<const N: usize, const M: usize, const K: usize, A: Layer<N, K>, B: Network<K, M>> Network<N, M>
-    for (Wrapper<N, K, A>, B)
+impl<const N: usize, const M: usize, const K: usize, A: Layer<N, K>, B: NetworkLayer<K, M>>
+    NetworkLayer<N, M> for (Wrapper<N, K, A>, B)
 {
-    fn forward<const P: usize>(&self, l: Matrix<P, N>) -> Matrix<P, M> {
+    fn forward<const P: usize>(&self, l: Matrix<N, P>) -> Matrix<M, P> {
         self.1.forward(self.0 .0.forward(l))
-    }
-
-    fn backward<const P: usize>(&self, l: Matrix<P, M>) -> Matrix<P, N> {
-        self.0 .0.backward(self.1.backward(l))
     }
 
     fn fit(
         &mut self,
-        input: Matrix<1, N>,
-        output_error: Matrix<1, M>,
+        input: Matrix<N, 1>,
+        output_error: Matrix<M, 1>,
         args: &LearningArgs,
-    ) -> Matrix<1, N> {
+    ) -> Matrix<N, 1> {
         self.0 .0.learn(
             input.clone(),
             self.1.fit(self.0 .0.forward(input), output_error, args),
@@ -207,13 +193,55 @@ impl<const N: usize, const M: usize, const K: usize, A: Layer<N, K>, B: Network<
     }
 }
 
+#[derive(Debug)]
+pub struct Network<const N: usize, const M: usize, T: NetworkLayer<N, M>>(T);
+
+impl<const N: usize, const M: usize, T: NetworkLayer<N, M>> Network<N, M, T> {
+    pub fn new(t: T) -> Self {
+        Self(t)
+    }
+    fn calculate_error<const K: usize>(&self, x: &Matrix<N, K>, y: &Matrix<M, K>) -> Matrix<M, K> {
+        2.0 * (self.predict(x.clone()) - y)
+    }
+    pub fn fit<const K: usize>(&mut self, x: Matrix<N, K>, y: Matrix<M, K>, args: &LearningArgs) {
+        for _ in 0..args.epochs {
+            for i in 0..K {
+                for _ in 0..args.single_epochs {
+                    let x = x.sub(i);
+                    let y = y.sub(i);
+                    for _e in 0..args.epochs {
+                        self.0.fit(x.clone(), self.calculate_error(&x, &y), args);
+
+                        // if e % 100 == 0 {
+                        //     println!("epochs: {}", e);
+                        // }
+                    }
+                }
+            }
+        }
+    }
+    pub fn predict<const K: usize>(&self, x: Matrix<N, K>) -> Matrix<M, K> {
+        self.0.forward(x)
+    }
+}
+
 #[macro_export]
-macro_rules! network {
+macro_rules! network_layers {
     ($e:expr $(,)?) => {
         ($e,)
     };
     ($e:expr,$($es:expr),* $(,)?) => {
-        ($crate::layer::Wrapper($e),network!($($es),*))
+        ($crate::layer::Wrapper($e),network_layers!($($es),*))
+    };
+
+}
+#[macro_export]
+macro_rules! network {
+    ($e:expr $(,)?) => {
+        $crate::layer::Network::new(network_layers!($e,))
+    };
+    ($($es:expr),* $(,)?) => {
+        $crate::layer::Network::new(network_layers!($($es),*))
     };
 
 }

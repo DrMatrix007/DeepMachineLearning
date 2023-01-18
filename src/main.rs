@@ -1,51 +1,39 @@
-#![allow(dead_code, unused_imports)]
-
-use std::default::{self};
-
-use layer::{Activation, Network};
 use matrix::Matrix;
-use rand::random;
 
-use crate::layer::{DenseLayer, LearningArgs, LinearActivation, ReLU, SigmoidActivation, Tanh};
+use crate::layer::{DenseLayer, LearningArgs, TanhActivation};
 pub mod layer;
 pub mod matrix;
 
-#[derive(Debug)]
-struct SquareActivation;
-
-impl Activation for SquareActivation {
-    fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        l.element_wise_product(&l)
-    }
-
-    fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        l * 2.0
-    }
-}
-
 fn main() {
-    let args = LearningArgs { learning_rate: 0.1 };
+    let args = LearningArgs {
+        learning_rate: 0.5,
+        epochs: 10,
+        single_epochs: 10,
+    };
     let mut net = network!(
-        DenseLayer::<2, 3>::default(),
-        Tanh,
-        DenseLayer::<3, 1>::default(),
-        Tanh,
+        DenseLayer::<2, 5>::default(),
+        DenseLayer::<5, 1>::default(),
     );
-    for _ in 0..10000 {
-        for i in 0..2 {
-            for j in 0..2 {
-                // let (j, i) = (random::<f64>() / 2.0, random::<f64>() / 2.0);
-                let x = Matrix::from([[i], [j]]);
-                let err =
-                    net.calulate_error(x.clone(), Matrix::from([[if i == j { 1.0 } else { 0.5 }]]));
-                net.fit(x, err.clone(), &args);
-            }
+    const MAX:usize = 5;
+
+    let mut x = Matrix::<2, 25>::default();
+    let mut y = Matrix::<1, 25>::default();
+    for i in 0..MAX {
+        for j in 0..MAX {
+            x.set_sub(i + j * MAX, &Matrix::from([[i as f64, j as f64]]));
+            y.set_sub(
+                i + j * MAX,
+                // &Matrix::from([[if i == j { 1.0 } else { -1.0 }]]),
+                &Matrix::from([[(i+j) as f64]]),
+            )
         }
     }
+    net.fit(x, y, &args);
     println!("{:?}", net);
 
-    println!("{}", net.forward([[0], [1]].into()));
-    println!("{}", net.forward([[1], [0]].into()));
-    println!("{}", net.forward([[1], [1]].into()));
-    println!("{}", net.forward([[0], [0]].into()));
+    println!("{}", net.predict([[0, 1]].into()));
+    println!("{}", net.predict([[1, 0]].into()));
+    println!("{}", net.predict([[1, 1]].into()));
+    println!("{}", net.predict([[0, 0]].into()));
+    println!("{}", net.predict([[100, 156]].into()));
 }

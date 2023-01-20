@@ -1,30 +1,30 @@
 use matrix::Matrix;
 
-use crate::layer::{DenseLayer, LearningArgs, TanhActivation};
+use crate::layer::{DenseLayer, LearningArgs, LeakyReLUActivation};
 pub mod layer;
 pub mod matrix;
 
 fn main() {
     let args = LearningArgs {
-        learning_rate: 0.5,
-        epochs: 10,
-        single_epochs: 10,
+        learning_rate: 0.01,
+        epochs: 100,
+        single_epochs: 100,
     };
     let mut net = network!(
-        DenseLayer::<2, 5>::default(),
-        DenseLayer::<5, 1>::default(),
+        DenseLayer::<2, 9>::default(),
+        LeakyReLUActivation,
+        DenseLayer::<9, 1>::default(),
+        LeakyReLUActivation
     );
-    const MAX:usize = 5;
+    let mut x = Matrix::<2, 4>::default();
+    let mut y = Matrix::<1, 4>::default();
 
-    let mut x = Matrix::<2, 25>::default();
-    let mut y = Matrix::<1, 25>::default();
-    for i in 0..MAX {
-        for j in 0..MAX {
-            x.set_sub(i + j * MAX, &Matrix::from([[i as f64, j as f64]]));
+    for i in 0..2 {
+        for j in 0..2 {
+            x.set_sub(j + i * 2, &Matrix::from([[i as f64, j as f64]]));
             y.set_sub(
-                i + j * MAX,
-                // &Matrix::from([[if i == j { 1.0 } else { -1.0 }]]),
-                &Matrix::from([[(i+j) as f64]]),
+                j + i * 2,
+                &Matrix::from([[if i == j { -5.0 } else { 0.5 }]]),
             )
         }
     }
@@ -35,5 +35,4 @@ fn main() {
     println!("{}", net.predict([[1, 0]].into()));
     println!("{}", net.predict([[1, 1]].into()));
     println!("{}", net.predict([[0, 0]].into()));
-    println!("{}", net.predict([[100, 156]].into()));
 }

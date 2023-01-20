@@ -120,13 +120,30 @@ pub struct ReLUActivation;
 
 impl Activation for ReLUActivation {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        l.map(|_, v| if v > 0.0 { v } else { 0.0 })
+        l.map(|_, v| if v >= 0.0 { v } else { 0.0 })
     }
 
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
         l.map(|_, v| if v > 0.0 { 1.0 } else { 0.0 })
     }
 }
+
+
+#[derive(Debug)]
+pub struct LeakyReLUActivation;
+
+impl Activation for LeakyReLUActivation {
+    fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_, v| if v >= 0.0 { v } else { 0.1*v })
+    }
+
+    fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
+        l.map(|_, v| if v > 0.0 { 1.0 } else { 0.1 })
+    }
+}
+
+
+
 
 #[derive(Debug)]
 pub struct TanhActivation;
@@ -204,19 +221,19 @@ impl<const N: usize, const M: usize, T: NetworkLayer<N, M>> Network<N, M, T> {
         2.0 * (self.predict(x.clone()) - y)
     }
     pub fn fit<const K: usize>(&mut self, x: Matrix<N, K>, y: Matrix<M, K>, args: &LearningArgs) {
-        for _ in 0..args.epochs {
+        for e in 0..args.epochs {
             for i in 0..K {
                 for _ in 0..args.single_epochs {
                     let x = x.sub(i);
                     let y = y.sub(i);
                     for _e in 0..args.epochs {
                         self.0.fit(x.clone(), self.calculate_error(&x, &y), args);
-
-                        // if e % 100 == 0 {
-                        //     println!("epochs: {}", e);
-                        // }
                     }
                 }
+            }
+
+            if e % 10 == 0 {
+                println!("epochs: {}", e);
             }
         }
     }

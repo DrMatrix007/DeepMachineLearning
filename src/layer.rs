@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::matrix::Matrix;
+use crate::{matrix::Matrix, optimizers::Optimizer};
 
 pub struct LearningArgs {
     pub learning_rate: f64,
@@ -23,12 +23,12 @@ pub trait Layer<const N: usize, const M: usize> {
 }
 
 #[derive(Debug)]
-pub struct DenseLayer<const N: usize, const M: usize> {
+pub struct DenseLayer<const N: usize, const M: usize,Args, Op:Optimizer<N,M,Args>> {
     weights: Matrix<M, N>,
     biases: Matrix<M, 1>,
+    optimizer:Op,
 }
-
-impl<const N: usize, const M: usize> DenseLayer<N, M> {
+impl<const N: usize, const M: usize,Args, Op:Optimizer<N,M,Args>> DenseLayer<N, M,Args,Op> {
     fn add_bias<const K: usize, const P: usize>(
         m: &Matrix<P, K>,
         b: &Matrix<P, 1>,
@@ -37,7 +37,7 @@ impl<const N: usize, const M: usize> DenseLayer<N, M> {
     }
 }
 
-impl<const N: usize, const M: usize> Layer<N, M> for DenseLayer<N, M> {
+impl<const N: usize, const M: usize,Args, Op:Optimizer<N,M,Args>> Layer<N, M> for DenseLayer<N, M,Args,Op> {
     fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K> {
         Self::add_bias(&(l * &self.weights), &self.biases)
     }

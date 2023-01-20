@@ -4,9 +4,10 @@ use crate::{layer::{DenseLayer, LearningArgs}, activation::LeakyReLUActivation};
 pub mod layer;
 pub mod matrix;
 pub mod activation;
+pub mod optimizers;
 fn main() {
     let args = LearningArgs {
-        learning_rate: 0.01,
+        learning_rate: 0.1,
         epochs: 100,
         single_epochs: 100,
     };

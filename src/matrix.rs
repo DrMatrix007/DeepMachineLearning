@@ -118,13 +118,32 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         if i < M {
             Matrix(self.0.iter().skip(i * N).take(N).copied().collect())
         } else {
-            panic!("access bounds out of range");            
+            panic!("access bounds out of range");
         }
     }
-    pub fn set_sub(&mut self,i:usize,m:&Matrix<N,1>) {
+    pub fn set_sub(&mut self, i: usize, m: &Matrix<N, 1>) {
         for x in 0..N {
-            self[(x,i)] = m[(x,0)];
+            self[(x, i)] = m[(x, 0)];
         }
+    }
+
+    pub fn powi(&self, arg: i32) -> Self {
+        self.map(|_, y| y.powi(arg))
+    }
+    pub fn powf(&self, arg: f64) -> Self {
+        self.map(|_, y| y.powf(arg))
+    }
+    pub fn add(&self, arg: f64) -> Self {
+        self.map(|_, x| x + arg)
+    }
+    pub fn sqrt(&self) -> Self {
+        self.map(|_,x|x.sqrt())
+    }
+    pub fn mul_element_wise(&self,m:&Matrix<N,M>) -> Self {
+        self.map(|pos,x|x*m[pos])
+    }
+    pub fn div_element_wise(&self,m:&Matrix<N,M>) -> Self {
+        self.map(|pos,x|x/m[pos])
     }
 }
 

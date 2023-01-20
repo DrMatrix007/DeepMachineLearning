@@ -1,9 +1,9 @@
 use matrix::Matrix;
 
-use crate::layer::{DenseLayer, LearningArgs, LeakyReLUActivation};
+use crate::{layer::{DenseLayer, LearningArgs}, activation::LeakyReLUActivation};
 pub mod layer;
 pub mod matrix;
-
+pub mod activation;
 fn main() {
     let args = LearningArgs {
         learning_rate: 0.01,

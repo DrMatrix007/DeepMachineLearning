@@ -8,6 +8,7 @@ use std::{
 pub struct Matrix<const N: usize, const M: usize>(pub(self) Vec<f64>);
 
 impl<const N: usize, const M: usize> FromIterator<Matrix<N, 1>> for Matrix<N, M> {
+    
     fn from_iter<T: IntoIterator<Item = Matrix<N, 1>>>(iter: T) -> Self {
         Matrix(iter.into_iter().flat_map(|x| x.0).collect())
     }

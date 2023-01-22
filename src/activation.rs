@@ -1,25 +1,25 @@
 use std::fmt::Debug;
 
-use crate::{layer::{Layer, LearningArgs}, matrix::Matrix};
+use crate::{layer::{LearningArgs}, matrix::Matrix};
 
 pub trait Activation: Debug {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N>;
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N>;
 }
-impl<const N: usize, T: Activation> Layer<N, N> for T {
-    fn learn(
-        &mut self,
-        input: Matrix<N, 1>,
-        output_error: Matrix<N, 1>,
-        _: &LearningArgs,
-    ) -> Matrix<N, 1> {
-        self.backward(input).element_wise_product(&output_error)
-    }
+// impl<const N: usize, T: Activation> Layer<N, N> for T {
+//     fn learn(
+//         &mut self,
+//         input: Matrix<N, 1>,
+//         output_error: Matrix<N, 1>,
+//         _: &LearningArgs,
+//     ) -> Matrix<N, 1> {
+//         self.backward(input).element_wise_product(&output_error)
+//     }
 
-    fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<N, K> {
-        self.forward(l)
-    }
-}
+//     fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<N, K> {
+//         self.forward(l)
+//     }
+// }
 
 #[derive(Debug)]
 pub struct LinearActivation;

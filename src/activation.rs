@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
-use crate::{layer::{LearningArgs}, matrix::Matrix};
+use crate::matrix::Matrix;
 
-pub trait Activation: Debug {
+pub trait Activation: Debug + Default {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N>;
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N>;
 }
@@ -21,7 +21,7 @@ pub trait Activation: Debug {
 //     }
 // }
 
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct LinearActivation;
 
 impl Activation for LinearActivation {
@@ -33,7 +33,7 @@ impl Activation for LinearActivation {
         Matrix::ones()
     }
 }
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct SigmoidActivation;
 
 impl SigmoidActivation {
@@ -54,7 +54,7 @@ impl Activation for SigmoidActivation {
         l.map(|_, v| Self::der(v))
     }
 }
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct ReLUActivation;
 
 impl Activation for ReLUActivation {
@@ -67,13 +67,12 @@ impl Activation for ReLUActivation {
     }
 }
 
-
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct LeakyReLUActivation;
 
 impl Activation for LeakyReLUActivation {
     fn forward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
-        l.map(|_, v| if v >= 0.0 { v } else { 0.1*v })
+        l.map(|_, v| if v >= 0.0 { v } else { 0.1 * v })
     }
 
     fn backward<const K: usize, const N: usize>(&self, l: Matrix<K, N>) -> Matrix<K, N> {
@@ -81,10 +80,7 @@ impl Activation for LeakyReLUActivation {
     }
 }
 
-
-
-
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct TanhActivation;
 
 impl Activation for TanhActivation {

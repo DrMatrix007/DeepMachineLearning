@@ -1,8 +1,9 @@
-use std::{env::Args, fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
+    activation::Activation,
     matrix::Matrix,
-    optimizers::{OptimizationArgs, Optimizer, OptimizerState},
+    optimizers::{OptimizationArgs, Optimizer},
 };
 
 pub struct LearningArgs<OpArgs: OptimizationArgs> {
@@ -16,12 +17,13 @@ pub struct LearningArgs<OpArgs: OptimizationArgs> {
 // pub struct Wrapper<const N: usize, const M: usize, T: Layer<N, M>>(pub T);
 
 #[derive(Debug)]
-pub struct DenseLayer<const N: usize, const M: usize, Op: Optimizer> {
+pub struct DenseLayer<const N: usize, const M: usize, Act: Activation, Op: Optimizer> {
     weights: Matrix<M, N>,
     biases: Matrix<M, 1>,
     optimizer: Op,
+    activation: Act,
 }
-impl<const N: usize, const M: usize, Op: Optimizer> DenseLayer<N, M, Op> {
+impl<const N: usize, const M: usize, Act: Activation, Op: Optimizer> DenseLayer<N, M, Act, Op> {
     fn add_bias<const K: usize, const P: usize>(
         m: &Matrix<P, K>,
         b: &Matrix<P, 1>,
@@ -29,7 +31,8 @@ impl<const N: usize, const M: usize, Op: Optimizer> DenseLayer<N, M, Op> {
         m.map(|(x, _), val| val + b[(x, 0)])
     }
     fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K> {
-        Self::add_bias(&(l * &self.weights), &self.biases)
+        self.activation
+            .forward(Self::add_bias(&(l * &self.weights), &self.biases))
     }
     fn learn(
         &mut self,
@@ -37,20 +40,24 @@ impl<const N: usize, const M: usize, Op: Optimizer> DenseLayer<N, M, Op> {
         output_error: Matrix<M, 1>,
         args: &LearningArgs<Op::Args>,
     ) -> Matrix<N, 1> {
+        let output_error = self.activation.backward(output_error);
         let input_error = &output_error * self.weights.trasnpose();
         let weights_error = input.trasnpose() * &output_error;
-        self.weights = &self.weights - &weights_error * args.learning_rate;
-        self.biases = &self.biases - (output_error * args.learning_rate);
+        self.weights = &self.weights + (&weights_error * args.learning_rate);
+        self.biases = &self.biases + (output_error * args.learning_rate);
         input_error
     }
 }
 
-impl<const N: usize, const M: usize, Op: Optimizer> Default for DenseLayer<N, M, Op> {
+impl<const N: usize, const M: usize, Act: Activation, Op: Optimizer> Default
+    for DenseLayer<N, M, Act, Op>
+{
     fn default() -> Self {
         Self {
             weights: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / (N * M) as f64),
             biases: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / M as f64),
             optimizer: Op::default(),
+            activation: Act::default(),
         }
     }
 }
@@ -71,8 +78,8 @@ pub trait NetworkLayer<const N: usize, const M: usize, Op: Optimizer> {
     }
 }
 
-impl<const N: usize, const M: usize, Op: Optimizer> NetworkLayer<N, M, Op>
-    for (DenseLayer<N, M, Op>,)
+impl<const N: usize, const M: usize, Act: Activation, Op: Optimizer> NetworkLayer<N, M, Op>
+    for (DenseLayer<N, M, Act, Op>,)
 {
     fn forward<const K: usize>(&self, l: Matrix<N, K>) -> Matrix<M, K> {
         self.0.forward(l)
@@ -88,8 +95,14 @@ impl<const N: usize, const M: usize, Op: Optimizer> NetworkLayer<N, M, Op>
     }
 }
 
-impl<const N: usize, const M: usize, const K: usize, Op: Optimizer, B: NetworkLayer<K, M, Op>>
-    NetworkLayer<N, M, Op> for (DenseLayer<N, K, Op>, B)
+impl<
+        const N: usize,
+        const M: usize,
+        const K: usize,
+        Act: Activation,
+        Op: Optimizer,
+        B: NetworkLayer<K, M, Op>,
+    > NetworkLayer<N, M, Op> for (DenseLayer<N, K, Act, Op>, B)
 {
     fn forward<const P: usize>(&self, l: Matrix<N, P>) -> Matrix<M, P> {
         self.1.forward(self.0.forward(l))
@@ -110,13 +123,13 @@ impl<const N: usize, const M: usize, const K: usize, Op: Optimizer, B: NetworkLa
 }
 
 #[derive(Debug)]
-pub struct Network< Op: Optimizer,const N: usize, const M: usize, T: NetworkLayer<N, M, Op>>(
+pub struct Network<Op: Optimizer, const N: usize, const M: usize, T: NetworkLayer<N, M, Op>>(
     T,
     PhantomData<Op>,
 );
 
 impl<const N: usize, const M: usize, Op: Optimizer, T: NetworkLayer<N, M, Op>>
-    Network<Op,N, M, T>
+    Network<Op, N, M, T>
 {
     pub fn new(t: T) -> Self {
         Self(t, Default::default())
@@ -152,12 +165,12 @@ impl<const N: usize, const M: usize, Op: Optimizer, T: NetworkLayer<N, M, Op>>
 }
 #[macro_export]
 macro_rules! network_layers {
-    ($op:ty,($x:tt,$y:tt) $(,($xs:tt,$ys:tt))+ $(,)?) => {
-        ($crate::layer::DenseLayer::<$x,$y,$op>::default(),network_layers!($op,$(($xs,$ys),)+))
+    ($op:ty,($x:tt,$y:tt,$act:ty) $(,($xs:tt,$ys:tt,$acts:ty))+ $(,)?) => {
+        ($crate::layers::DenseLayer::<$x,$y,$act,$op>::default(),network_layers!($op,$(($xs,$ys,$acts),)+))
     };
 
-    ($op:ty,($x:tt,$y:tt) $(,)?) => {
-        ($crate::layer::DenseLayer::<$x,$y,$op>::default(),)
+    ($op:ty,($x:tt,$y:tt,$act:ty) $(,)?) => {
+        ($crate::layers::DenseLayer::<$x,$y,$act,$op>::default(),)
     };
 }
 #[macro_export]
@@ -172,7 +185,7 @@ macro_rules! get_last {
     ($e:tt $(,$es:tt)+ $(,)?) => {
         $crate::get_last!($($es,)*)
     };
-    
+
     ($e:tt $(,)?) => {
         ($e)
     };
@@ -180,8 +193,8 @@ macro_rules! get_last {
 
 #[macro_export]
 macro_rules! network {
-    (optimizer: $op:ty, layers: $(($x:tt,$y:tt)),* $(,)?) => {
-        $crate::layer::Network::<$op,{$crate::get_first!($($x,)*)},{$crate::get_last!($($y,)*)},_>::new(network_layers!($op,$(($x,$y),)*))
+    (optimizer: $op:ty, layers: [$(($x:tt,$y:tt,$act:ty)),* $(,)?]) => {
+        $crate::layers::Network::<$op,{$crate::get_first!($($x,)*)},{$crate::get_last!($($y,)*)},_>::new(network_layers!($op,$(($x,$y,$act),)*))
     };
 
 }

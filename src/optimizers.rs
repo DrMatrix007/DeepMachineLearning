@@ -1,12 +1,14 @@
+use std::fmt::Debug;
+
 use crate::matrix::Matrix;
 
 pub trait OptimizationArgs {}
 
-pub trait Optimizer : Default {
+pub trait Optimizer : Default+Debug {
     type Args: OptimizationArgs;
     type State<const N:usize, const M:usize> : OptimizerState<N,M,Self::Args>;
 
-    fn getOptimizer<const N:usize,const M:usize>() -> Self::State<N,M>;
+    fn get_state<const N:usize,const M:usize>() -> Self::State<N,M>;
 }
 
 pub trait OptimizerState<const N: usize, const M: usize,Args:OptimizationArgs>: Default {
@@ -23,7 +25,7 @@ pub trait OptimizerState<const N: usize, const M: usize,Args:OptimizationArgs>: 
 }
 
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 pub struct AdamOptimizer;
 
 impl Optimizer for AdamOptimizer {
@@ -31,7 +33,7 @@ impl Optimizer for AdamOptimizer {
 
     type State<const N:usize, const M:usize>  = AdamOptimizerState<N,M>;
 
-    fn getOptimizer<const N:usize,const M:usize>() -> Self::State<N,M> {
+    fn get_state<const N:usize,const M:usize>() -> Self::State<N,M> {
         Default::default()
     }
 }

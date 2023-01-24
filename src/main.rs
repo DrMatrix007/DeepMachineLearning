@@ -3,26 +3,33 @@ use matrix::Matrix;
 use crate::{
     activation::{LeakyReLUActivation, SigmoidActivation, TanhActivation},
     layers::{DenseLayer, LearningArgs},
-    optimizers::{AdamOptimizer, AdamOptimizerArgs},
+    optimizers::{AdamOptimizer, AdamOptimizerArgs, GradientDecentOptimizer, GradientDecentOptimizerArgs},
 };
 pub mod activation;
 pub mod layers;
 pub mod matrix;
 pub mod optimizers;
 fn main() {
-    let args = LearningArgs::<AdamOptimizerArgs> {
-        learning_rate: 0.1,
+    // let args = LearningArgs::<AdamOptimizerArgs> {
+    //     learning_rate: 0.1,
+    //     epochs: 10,
+    //     single_epochs: 100,
+    //     op_args: AdamOptimizerArgs {
+    //         beta1: 0.9,
+    //         beta2: 0.999,
+    //         epsilon: 1e-8,
+    //         eta: 0.01,
+    //     },
+    // };
+    let args = LearningArgs {
         epochs: 100,
-        single_epochs: 1,
-        op_args: AdamOptimizerArgs {
-            beta1: 0.9,
-            beta2: 0.999,
-            epsilon: 1e-8,
-            eta: 0.01,
+        single_epochs: 10,
+        op_args: GradientDecentOptimizerArgs {
+            learning_rate: 0.1, 
         },
     };
     let mut net = network! {
-            optimizer: AdamOptimizer,
+            optimizer: GradientDecentOptimizer,
             layers: [
                  (2,3,TanhActivation),
                  (3,1,TanhActivation)

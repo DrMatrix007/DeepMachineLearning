@@ -8,7 +8,6 @@ use std::{
 pub struct Matrix<const N: usize, const M: usize>(pub(self) Vec<f64>);
 
 impl<const N: usize, const M: usize> FromIterator<Matrix<N, 1>> for Matrix<N, M> {
-    
     fn from_iter<T: IntoIterator<Item = Matrix<N, 1>>>(iter: T) -> Self {
         Matrix(iter.into_iter().flat_map(|x| x.0).collect())
     }
@@ -138,13 +137,13 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         self.map(|_, x| x + arg)
     }
     pub fn sqrt(&self) -> Self {
-        self.map(|_,x|x.sqrt())
+        self.map(|_, x| x.sqrt())
     }
-    pub fn mul_element_wise(&self,m:&Matrix<N,M>) -> Self {
-        self.map(|pos,x|x*m[pos])
+    pub fn mul_element_wise(&self, m: &Matrix<N, M>) -> Self {
+        self.map(|pos, x| x * m[pos])
     }
-    pub fn div_element_wise(&self,m:&Matrix<N,M>) -> Self {
-        self.map(|pos,x|x/m[pos])
+    pub fn div_element_wise(&self, m: &Matrix<N, M>) -> Self {
+        self.map(|pos, x| x / m[pos])
     }
 }
 

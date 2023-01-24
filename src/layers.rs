@@ -3,11 +3,10 @@ use std::{fmt::Debug, marker::PhantomData};
 use crate::{
     activation::Activation,
     matrix::Matrix,
-    optimizers::{OptimizationArgs, Optimizer},
+    optimizers::{OptimizationArgs, Optimizer, OptimizerState},
 };
 
 pub struct LearningArgs<OpArgs: OptimizationArgs> {
-    pub learning_rate: f64,
     pub epochs: i32,
     pub single_epochs: i32,
     pub op_args: OpArgs,
@@ -20,7 +19,7 @@ pub struct LearningArgs<OpArgs: OptimizationArgs> {
 pub struct DenseLayer<const N: usize, const M: usize, Act: Activation, Op: Optimizer> {
     weights: Matrix<M, N>,
     biases: Matrix<M, 1>,
-    optimizer: Op,
+    optimizer: Op::State<M, N>,
     activation: Act,
 }
 impl<const N: usize, const M: usize, Act: Activation, Op: Optimizer> DenseLayer<N, M, Act, Op> {
@@ -40,12 +39,22 @@ impl<const N: usize, const M: usize, Act: Activation, Op: Optimizer> DenseLayer<
         output_error: Matrix<M, 1>,
         args: &LearningArgs<Op::Args>,
     ) -> Matrix<N, 1> {
-        let output_error = self.activation.backward(output_error);
-        let input_error = &output_error * self.weights.trasnpose();
-        let weights_error = input.trasnpose() * &output_error;
-        self.weights = &self.weights + (&weights_error * args.learning_rate);
-        self.biases = &self.biases + (output_error * args.learning_rate);
-        input_error
+        let output_error = output_error.element_wise_product(
+            &self
+                .activation
+                .backward(Self::add_bias(&(&input * &self.weights), &self.biases)),
+        );
+        let (a, b) = self.optimizer.update(
+            &self.weights,
+            &self.biases,
+            &(input.trasnpose() * &output_error),
+            &output_error,
+            &args.op_args,
+        );
+        self.weights = a;
+        self.biases = b;
+
+        output_error * self.weights.trasnpose()
     }
 }
 
@@ -56,7 +65,7 @@ impl<const N: usize, const M: usize, Act: Activation, Op: Optimizer> Default
         Self {
             weights: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / (N * M) as f64),
             biases: Matrix::generate(|| ((rand::random::<f64>()) - 0.5) / M as f64),
-            optimizer: Op::default(),
+            optimizer: Op::get_state(),
             activation: Act::default(),
         }
     }
